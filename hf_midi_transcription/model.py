@@ -6,46 +6,62 @@ from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
 from piano_transcription_inference import PianoTranscription, sample_rate
 from librosa.core import load
 import os
+import json
 
 
-class SaxophoneTranscriptionModel(
+class MidiTranscriptionModel(
     nn.Module,
     PyTorchModelHubMixin,
-    repo_url="https://github.com/xavriley/sax_transcription/",
+    repo_url="https://github.com/xavriley/hf_midi_transcription/",
     pipeline_tag="audio-to-midi",
     license="mit",
-    tags=["audio", "midi", "transcription", "saxophone", "music"],
+    tags=["audio", "midi", "transcription", "multi-instrument", "music"],
 ):
     """
-    A saxophone transcription model that converts audio to MIDI using a specialized neural network.
+    A multi-instrument transcription model that converts audio to MIDI using specialized neural networks.
     
-    This model is based on piano transcription techniques adapted for saxophone audio.
-    It can transcribe saxophone audio files to MIDI format.
+    This model is based on piano transcription techniques adapted for various instruments including
+    saxophone, bass, guitar, and piano. It can transcribe monophonic audio files to MIDI format.
     """
     
     def __init__(
         self, 
         device: Optional[str] = None, 
-        sax_checkpoint_path: str = "filosax_25k.pth", 
+        instrument: str = "saxophone",
+        checkpoint_path: Optional[str] = None,
         batch_size: int = 8,
         **kwargs
     ):
         """
-        Initialize the Saxophone Transcription Model.
+        Initialize the MIDI Transcription Model.
         
         Args:
             device (str, optional): Device to run the model on ('cuda', 'cpu'). 
                                   If None, automatically selects based on availability.
-            sax_checkpoint_path (str): Path to the saxophone model checkpoint file.
+            instrument (str): Instrument to transcribe ('saxophone', 'bass', 'guitar', 'piano').
+            checkpoint_path (str, optional): Path to model checkpoint file. If None, uses default for instrument.
             batch_size (int): Batch size for processing audio segments.
             **kwargs: Additional arguments passed to parent classes.
         """
         super().__init__()
         
+        # Load instrument configuration
+        self.instrument_config = self._load_instrument_config()
+        
+        # Validate instrument
+        if instrument not in self.instrument_config:
+            available = list(self.instrument_config.keys())
+            raise ValueError(f"Unsupported instrument '{instrument}'. Available: {available}")
+        
+        # Determine checkpoint path
+        if checkpoint_path is None:
+            checkpoint_path = self.instrument_config[instrument]["checkpoint_file"]
+        
         # Store configuration for serialization
         self.config = {
             "device": device,
-            "sax_checkpoint_path": sax_checkpoint_path,
+            "instrument": instrument,
+            "checkpoint_path": checkpoint_path,
             "batch_size": batch_size,
             "sample_rate": sample_rate,
         }
@@ -54,11 +70,33 @@ class SaxophoneTranscriptionModel(
             device = "cuda" if torch.cuda.is_available() else "cpu"
         
         self.device = device
-        self.sax_checkpoint_path = sax_checkpoint_path
+        self.instrument = instrument
+        self.checkpoint_path = checkpoint_path
         self.batch_size = batch_size
         
         # Initialize the transcriptor
-        self._init_transcriptor()
+        self._init_transcriptor(instrument)
+    
+    def _load_instrument_config(self) -> Dict[str, Any]:
+        """Load instrument configuration from instruments.json file."""
+        # Look for config file in package directory or current directory
+        config_paths = [
+            Path(__file__).parent.parent / "instruments.json",  # Package root
+            Path("instruments.json"),  # Current directory
+        ]
+        
+        for config_path in config_paths:
+            if config_path.exists():
+                with open(config_path, 'r') as f:
+                    return json.load(f)
+        
+        # Fallback configuration if file not found
+        return {
+            "saxophone": {"checkpoint_file": "filosax_25k.pth", "description": "Saxophone model"},
+            "bass": {"checkpoint_file": "filobass_20000_iterations.pth", "description": "Bass model"},
+            "guitar": {"checkpoint_file": "guitar_model.pth", "description": "Guitar model"},
+            "piano": {"checkpoint_file": "piano_model.pth", "description": "Piano model"},
+        }
     
     def _download_model_if_needed(self, checkpoint_path: str) -> str:
         """
@@ -74,30 +112,29 @@ class SaxophoneTranscriptionModel(
         if os.path.exists(checkpoint_path):
             return checkpoint_path
             
-        # Default model repository and filename
-        default_repo = "xavriley/sax-transcription-model"
-        default_filename = "filosax_25k.pth"
+        # Default model repository
+        default_repo = "xavriley/midi-transcription-models"
         
         # Handle different input formats
-        if checkpoint_path == "filosax_25k.pth" or checkpoint_path == default_filename:
-            # Download the default model
+        if checkpoint_path in [config["checkpoint_file"] for config in self.instrument_config.values()]:
+            # Download the model for this instrument
             try:
-                print(f"Downloading model from {default_repo}...")
+                print(f"Downloading {self.instrument} model from {default_repo}...")
                 local_path = hf_hub_download(
                     repo_id=default_repo,
-                    filename=default_filename,
+                    filename=checkpoint_path,
                     cache_dir=None  # Use default HF cache
                 )
                 print(f"✓ Model downloaded to: {local_path}")
                 return local_path
             except Exception as e:
                 # Fallback: look for local file in current directory
-                if os.path.exists(default_filename):
-                    print(f"⚠ Download failed ({e}), using local file: {default_filename}")
-                    return default_filename
+                if os.path.exists(checkpoint_path):
+                    print(f"⚠ Download failed ({e}), using local file: {checkpoint_path}")
+                    return checkpoint_path
                 else:
                     raise FileNotFoundError(
-                        f"Could not download model from {default_repo} and no local file found. "
+                        f"Could not download {self.instrument} model from {default_repo} and no local file found. "
                         f"Error: {e}\n"
                         f"Please ensure you have internet access or provide a local checkpoint file."
                     )
@@ -123,13 +160,13 @@ class SaxophoneTranscriptionModel(
             
             return checkpoint_path
 
-    def _init_transcriptor(self):
-        """Initialize the piano transcription model adapted for saxophone."""
+    def _init_transcriptor(self, instrument: str = "saxophone"):
+        """Initialize the piano transcription model adapted for the selected instrument."""
         # Ensure we have the model file (download if necessary)
-        actual_checkpoint_path = self._download_model_if_needed(self.sax_checkpoint_path)
+        actual_checkpoint_path = self._download_model_if_needed(self.checkpoint_path)
         
         self.transcriptor = PianoTranscription(
-            "Regress_onset_offset_frame_velocity_CRNN",
+            "Note_pedal" if instrument == "piano" else "Regress_onset_offset_frame_velocity_CRNN",
             device=self.device,
             checkpoint_path=actual_checkpoint_path,
             segment_samples=10 * sample_rate,
@@ -209,14 +246,14 @@ class SaxophoneTranscriptionModel(
         save_directory = Path(save_directory)
         
         # Copy the checkpoint file to the save directory if it exists
-        checkpoint_path = Path(self.sax_checkpoint_path)
+        checkpoint_path = Path(self.checkpoint_path)
         if checkpoint_path.exists():
             import shutil
             target_checkpoint = save_directory / checkpoint_path.name
             shutil.copy2(checkpoint_path, target_checkpoint)
             
             # Update config to use relative path
-            self.config["sax_checkpoint_path"] = checkpoint_path.name
+            self.config["checkpoint_path"] = checkpoint_path.name
         
         # Save a dummy state dict for PyTorch compatibility
         # Since this model wraps an external transcriptor, we'll save minimal state
@@ -285,12 +322,16 @@ class SaxophoneTranscriptionModel(
             # The state dict only contains dummy parameters for PyTorch compatibility
         
         # Update checkpoint path to absolute path if it exists in the model directory
-        if "sax_checkpoint_path" in config:
-            checkpoint_file = model_path / config["sax_checkpoint_path"]
+        if "checkpoint_path" in config:
+            checkpoint_file = model_path / config["checkpoint_path"]
             if checkpoint_file.exists():
-                config["sax_checkpoint_path"] = str(checkpoint_file)
+                config["checkpoint_path"] = str(checkpoint_file)
         
         # Create model instance with loaded config
         model = cls(**{**config, **model_kwargs})
         
         return model
+
+
+# Backward compatibility alias
+SaxophoneTranscriptionModel = MidiTranscriptionModel

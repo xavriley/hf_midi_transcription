@@ -598,7 +598,7 @@ wheels = [
 ]
 
 [[package]]
-name = "hf-sax-transcription"
+name = "hf-midi-transcription"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

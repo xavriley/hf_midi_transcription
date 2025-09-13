@@ -1,0 +1,6 @@
+{
+  "batch_size": 8,
+  "checkpoint_path": "note_F1=0.9677_pedal_F1=0.9186.pth",
+  "device": "cpu",
+  "instrument": "piano"
+}

@@ -1,7 +1,7 @@
 [project]
-name = "hf-sax-transcription"
+name = "hf-midi-transcription"
 version = "0.1.0"
-description = "Saxophone transcription model for converting audio to MIDI using neural networks"
+description = "Multi-instrument transcription model for converting audio to MIDI using neural networks"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 authors = [
     {name = "Xavier Riley", email = "your-email@example.com"},
 ]
-keywords = ["audio", "midi", "transcription", "saxophone", "music", "ai"]
+keywords = ["audio", "midi", "transcription", "multi-instrument", "saxophone", "bass", "guitar", "piano", "music", "ai"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -30,12 +30,12 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/xavriley/hf_sax_transcription"
-Repository = "https://github.com/xavriley/hf_sax_transcription.git"
-Issues = "https://github.com/xavriley/hf_sax_transcription/issues"
+Homepage = "https://github.com/xavriley/hf_midi_transcription"
+Repository = "https://github.com/xavriley/hf_midi_transcription.git"
+Issues = "https://github.com/xavriley/hf_midi_transcription/issues"
 
 [project.scripts]
-sax_transcription = "hf_sax_transcription.cli:main"
+midi_transcription = "hf_midi_transcription.cli:main"
 
 [tool.uv.sources]
 piano-transcription-inference = { git = "https://github.com/xavriley/piano_transcription_inference.git" }

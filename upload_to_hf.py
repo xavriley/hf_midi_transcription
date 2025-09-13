@@ -1,57 +1,102 @@
 """
-Script to upload the Saxophone Transcription Model to Hugging Face Hub
+Script to upload the MIDI Transcription Model to Hugging Face Hub
 """
 
 import os
-from hf_sax_transcription import SaxophoneTranscriptionModel
+import json
+from pathlib import Path
+from hf_midi_transcription import MidiTranscriptionModel
 
 def main():
-    print("Uploading Saxophone Transcription Model to Hugging Face Hub")
+    print("Uploading MIDI Transcription Models to Hugging Face Hub")
     print("=" * 60)
     
-    # Check if checkpoint file exists
-    checkpoint_file = "filosax_25k.pth"
-    if not os.path.exists(checkpoint_file):
-        print(f"✗ Error: {checkpoint_file} not found in current directory")
-        print("Please ensure the checkpoint file is in the same directory as this script")
-        print("Note: This large model file should be uploaded separately to HF Hub")
+    # Load instrument configuration
+    config_path = Path("instruments.json")
+    if not config_path.exists():
+        print("✗ Error: instruments.json not found")
+        print("Please ensure the instruments configuration file is in the current directory")
+        return
+    
+    with open(config_path, 'r') as f:
+        instruments_config = json.load(f)
+    
+    # Check if checkpoint files exist
+    missing_files = []
+    for instrument, config in instruments_config.items():
+        checkpoint_file = config["checkpoint_file"]
+        if not os.path.exists(checkpoint_file):
+            missing_files.append(f"{instrument}: {checkpoint_file}")
+    
+    if missing_files:
+        print("✗ Error: Missing checkpoint files:")
+        for missing in missing_files:
+            print(f"  - {missing}")
+        print("Please ensure all checkpoint files are in the same directory as this script")
+        print("Note: These large model files should be uploaded to HF Hub")
         return
     
     try:
-        # Initialize model
-        print("1. Initializing model...")
-        model = SaxophoneTranscriptionModel(
-            sax_checkpoint_path="filosax_25k.pth",
-            device="cpu",  # Use CPU for upload to avoid memory issues
+        # Upload models for each instrument
+        repo_name = "xavriley/midi-transcription-models"
+        
+        for i, (instrument, config) in enumerate(instruments_config.items(), 1):
+            print(f"{i}. Processing {instrument} model...")
+            
+            # Initialize model for this instrument
+            model = MidiTranscriptionModel(
+                instrument=instrument,
+                checkpoint_path=config["checkpoint_file"],
+                device="cpu",  # Use CPU for upload to avoid memory issues
+                batch_size=8
+            )
+            
+            # Save locally first (optional, for backup)
+            local_dir = f"midi-transcription-model-{instrument}-local"
+            print(f"   Saving {instrument} model locally...")
+            model.save_pretrained(local_dir)
+            print(f"   ✓ Local save completed for {instrument}")
+        
+        # Upload the first model to create the repository structure
+        print(f"\n{len(instruments_config) + 1}. Uploading to Hugging Face Hub...")
+        print(f"   Repository: {repo_name}")
+        
+        # Use the first instrument model for the initial upload
+        first_instrument = list(instruments_config.keys())[0]
+        first_config = instruments_config[first_instrument]
+        
+        model = MidiTranscriptionModel(
+            instrument=first_instrument,
+            checkpoint_path=first_config["checkpoint_file"],
+            device="cpu",
             batch_size=8
         )
         
-        # Save locally first (optional, for backup)
-        print("2. Saving model locally...")
-        model.save_pretrained("sax-transcription-model-local")
-        print("✓ Local save completed")
-        
-        # Upload to Hub
-        print("3. Uploading to Hugging Face Hub...")
-        print("   Repository: xavriley/sax-transcription-model")
-        
         model.push_to_hub(
-            "xavriley/sax-transcription-model",
-            # Optional: Add commit message
-            commit_message="Initial upload of saxophone transcription model",
-            # Optional: Make it private initially
+            repo_name,
+            commit_message="Initial upload of multi-instrument MIDI transcription models",
             private=False,
         )
         
         print("✓ Upload completed successfully!")
-        print("\n🎉 Your model is now available on Hugging Face Hub!")
-        print("🔗 https://huggingface.co/xavriley/sax-transcription-model")
+        print("\n🎉 Your models are now available on Hugging Face Hub!")
+        print(f"🔗 https://huggingface.co/{repo_name}")
         
-        print("\nUsers can now use your model with:")
+        print("\nUsers can now use your models with:")
         print("```python")
-        print("from hf_sax_transcription import SaxophoneTranscriptionModel")
-        print("model = SaxophoneTranscriptionModel.from_pretrained('xavriley/sax-transcription-model')")
+        print("from hf_midi_transcription import MidiTranscriptionModel")
+        print(f"model = MidiTranscriptionModel.from_pretrained('{repo_name}', instrument='saxophone')")
         print("model.transcribe('audio.wav', 'output.mid')")
+        print("```")
+        
+        print("\nAvailable instruments:")
+        for instrument in instruments_config.keys():
+            print(f"  - {instrument}")
+        
+        print("\nCLI usage:")
+        print("```bash")
+        print("midi_transcription audio.wav output.mid --instrument saxophone")
+        print("midi_transcription audio.wav output.mid --instrument bass")
         print("```")
         
     except Exception as e:

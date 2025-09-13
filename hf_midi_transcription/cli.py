@@ -1,5 +1,5 @@
 """
-Command Line Interface for Saxophone Transcription Model
+Command Line Interface for MIDI Transcription Model
 """
 
 import argparse
@@ -7,21 +7,21 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .model import SaxophoneTranscriptionModel
+from .model import MidiTranscriptionModel
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the argument parser for the CLI."""
     parser = argparse.ArgumentParser(
-        prog="sax_transcription",
-        description="Transcribe saxophone audio to MIDI using neural networks",
+        prog="midi_transcription",
+        description="Transcribe audio to MIDI using neural networks for multiple instruments",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  sax_transcription audio.wav output.mid
-  sax_transcription recording.mp3 transcription.mid --device cuda
-  sax_transcription input.wav output.mid --batch-size 16 --checkpoint custom_model.pth
-  sax_transcription audio.wav output.mid --model-id username/custom-sax-model
+  midi_transcription audio.wav output.mid --instrument saxophone
+  midi_transcription recording.mp3 transcription.mid --instrument bass --device cuda
+  midi_transcription input.wav output.mid --instrument guitar --batch-size 16
+  midi_transcription audio.wav output.mid --instrument piano --model-id username/custom-model
         """
     )
     
@@ -40,6 +40,14 @@ Examples:
     
     # Optional arguments
     parser.add_argument(
+        "--instrument",
+        type=str,
+        default="saxophone",
+        choices=["saxophone", "bass", "guitar", "piano"],
+        help="Instrument to transcribe (default: saxophone)"
+    )
+    
+    parser.add_argument(
         "--device",
         type=str,
         default=None,
@@ -57,8 +65,8 @@ Examples:
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="filosax_25k.pth",
-        help="Path to model checkpoint file (default: filosax_25k.pth)"
+        default=None,
+        help="Path to model checkpoint file (default: auto-selected based on instrument)"
     )
     
     parser.add_argument(
@@ -104,7 +112,7 @@ def validate_args(args: argparse.Namespace) -> None:
             sys.exit(1)
     
     # If using local checkpoint, check if it exists
-    if not args.model_id and args.checkpoint != "filosax_25k.pth":
+    if not args.model_id and args.checkpoint is not None:
         checkpoint_path = Path(args.checkpoint)
         if not checkpoint_path.exists():
             print(f"Error: Checkpoint file not found: {args.checkpoint}", file=sys.stderr)
@@ -120,16 +128,17 @@ def main() -> None:
     validate_args(args)
     
     if args.verbose:
-        print("Saxophone Transcription CLI")
+        print("MIDI Transcription CLI")
         print("=" * 40)
         print(f"Input audio: {args.audio_path}")
         print(f"Output MIDI: {args.midi_output_path}")
+        print(f"Instrument: {args.instrument}")
         print(f"Device: {args.device or 'auto'}")
         print(f"Batch size: {args.batch_size}")
         if args.model_id:
             print(f"Model ID: {args.model_id}")
         else:
-            print(f"Checkpoint: {args.checkpoint}")
+            print(f"Checkpoint: {args.checkpoint or 'auto-selected'}")
         print()
     
     try:
@@ -144,16 +153,18 @@ def main() -> None:
         
         if args.model_id:
             # Load from Hugging Face Hub
-            model = SaxophoneTranscriptionModel.from_pretrained(
+            model = MidiTranscriptionModel.from_pretrained(
                 args.model_id,
                 device=device,
+                instrument=args.instrument,
                 batch_size=args.batch_size
             )
         else:
-            # Load from local checkpoint
-            model = SaxophoneTranscriptionModel(
+            # Load from local checkpoint or auto-select based on instrument
+            model = MidiTranscriptionModel(
                 device=device,
-                sax_checkpoint_path=args.checkpoint,
+                instrument=args.instrument,
+                checkpoint_path=args.checkpoint,
                 batch_size=args.batch_size
             )
         
