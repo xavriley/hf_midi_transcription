@@ -10,7 +10,7 @@ dependencies = [
     "huggingface-hub>=0.16.0",
     "numpy>=1.21.0",
     "safetensors>=0.3.0",
-    "piano-transcription-inference",
+    "piano-transcription-inference @ git+https://github.com/xavriley/piano_transcription_inference.git",
 ]
 authors = [
     {name = "Xavier Riley", email = "your-email@example.com"},
@@ -37,5 +37,3 @@ Issues = "https://github.com/xavriley/hf_midi_transcription/issues"
 [project.scripts]
 midi_transcription = "hf_midi_transcription.cli:main"
 
-[tool.uv.sources]
-piano-transcription-inference = { git = "https://github.com/xavriley/piano_transcription_inference.git" }
