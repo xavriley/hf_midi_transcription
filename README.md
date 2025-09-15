@@ -2,6 +2,8 @@
 
 This code transcribes solo, monophonic audio from multiple instruments to MIDI. Currently supports saxophone, bass, guitar, and piano. If you need to separate instruments from a mix first please check out UVR or MVSep.com
 
+For drum transcription please check out [ADTOF-pytorch](https://github.com/xavriley/ADTOF-pytorch).
+
 **Key Features:**
 - Audio-to-MIDI transcription for multiple instruments (saxophone, bass, guitar, piano)
 - Instrument-specific model selection
