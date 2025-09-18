@@ -8,11 +8,19 @@
     "description": "Bass transcription model trained on 20k iterations"
   },
   "guitar": {
-    "checkpoint_file": "note_F1=0.9677_pedal_F1=0.9186.pth",
-    "description": "Guitar transcription model"
+    "checkpoint_file": "guitar-gaps.pth",
+    "description": "Guitar transcription model (default: GAPS)"
+  },
+  "guitar_fl": {
+    "checkpoint_file": "guitar-fl.pth",
+    "description": "Guitar transcription model trained on Francois Leduc dataset"
+  },
+  "guitar_gaps": {
+    "checkpoint_file": "guitar-gaps.pth",
+    "description": "Guitar transcription model trained on GAPS"
   },
   "piano": {
-    "checkpoint_file": "note_F1=0.9677_pedal_F1=0.9186.pth",
+    "checkpoint_file": "piano.pth",
     "description": "Piano transcription model"
   }
 }
