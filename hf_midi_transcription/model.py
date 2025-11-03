@@ -94,8 +94,8 @@ class MidiTranscriptionModel(
         return {
             "saxophone": {"checkpoint_file": "filosax_25k.pth", "description": "Saxophone model"},
             "bass": {"checkpoint_file": "filobass_20000_iterations.pth", "description": "Bass model"},
-            "guitar": {"checkpoint_file": "guitar_model.pth", "description": "Guitar model"},
-            "piano": {"checkpoint_file": "piano_model.pth", "description": "Piano model"},
+            "guitar": {"checkpoint_file": "guitar-gaps.pth", "description": "Guitar model"},
+            "piano": {"checkpoint_file": "piano.pth", "description": "Piano model"},
         }
     
     def _download_model_if_needed(self, checkpoint_path: str) -> str:
