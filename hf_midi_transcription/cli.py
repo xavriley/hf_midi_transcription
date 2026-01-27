@@ -6,6 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+import numpy as np
 
 from .model import MidiTranscriptionModel
 
@@ -51,8 +52,8 @@ Examples:
         "--device",
         type=str,
         default=None,
-        choices=["auto", "cpu", "cuda"],
-        help="Device to run inference on (default: auto - chooses cuda if available, else cpu)"
+        choices=["auto", "cpu", "cuda", "mps"],
+        help="Device to run inference on (default: auto - chooses cuda/mps if available, else cpu)"
     )
     
     parser.add_argument(
@@ -87,7 +88,13 @@ Examples:
         action="version",
         version="%(prog)s 0.1.0"
     )
-    
+
+    parser.add_argument(
+        "--activations",
+        action="store_true",
+        help="Enable activations output"
+    )
+
     return parser
 
 
@@ -173,7 +180,12 @@ def main() -> None:
             print("Starting transcription...")
         
         # Perform transcription
-        output_path = model.transcribe(args.audio_path, args.midi_output_path)
+        if args.activations:
+            output_path,activations_output = model.transcribe(args.audio_path, args.midi_output_path, activations=True)
+            activations_output_path = Path(output_path).with_suffix(".activations.npy")
+            np.save(activations_output_path, activations_output['output_dict']['frame_output'])
+        else:
+            output_path = model.transcribe(args.audio_path, args.midi_output_path)
         
         # Success message
         print(f"✓ Transcription completed successfully!")

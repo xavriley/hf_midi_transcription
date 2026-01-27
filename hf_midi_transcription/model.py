@@ -30,6 +30,10 @@ class MidiTranscriptionModel(
         instrument: str = "saxophone",
         checkpoint_path: Optional[str] = None,
         batch_size: int = 8,
+        onset_threshold: float = 0.3,
+        offset_threshold: float = 0.3,
+        frame_threshold: float = 0.1,
+        pedal_offset_threshold: float = 0.2,
         **kwargs
     ):
         """
@@ -64,10 +68,19 @@ class MidiTranscriptionModel(
             "checkpoint_path": checkpoint_path,
             "batch_size": batch_size,
             "sample_rate": sample_rate,
+            "onset_threshold": onset_threshold,
+            "offset_threshold": offset_threshold,
+            "frame_threshold": frame_threshold,
+            "pedal_offset_threshold": pedal_offset_threshold,
         }
         
         if not device or device == "auto":
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
         
         self.device = device
         self.instrument = instrument
@@ -160,7 +173,12 @@ class MidiTranscriptionModel(
             
             return checkpoint_path
 
-    def _init_transcriptor(self, instrument: str = "saxophone"):
+    def _init_transcriptor(self, 
+        instrument: str = "saxophone",
+        onset_threshold: float = 0.3,
+        offset_threshold: float = 0.3,
+        frame_threshold: float = 0.1,
+        pedal_offset_threshold: float = 0.2):
         """Initialize the piano transcription model adapted for the selected instrument."""
         # Ensure we have the model file (download if necessary)
         actual_checkpoint_path = self._download_model_if_needed(self.checkpoint_path)
@@ -194,7 +212,8 @@ class MidiTranscriptionModel(
     def transcribe(
         self, 
         audio_path: Union[str, Path], 
-        midi_output_path: Union[str, Path]
+        midi_output_path: Union[str, Path],
+        activations: Optional[bool] = False
     ) -> str:
         """
         Transcribe audio file to MIDI.
@@ -210,14 +229,18 @@ class MidiTranscriptionModel(
         audio, _ = load(str(audio_path), sr=sample_rate)
         
         # Transcribe using the underlying model
-        result = self.transcriptor.transcribe(audio, str(midi_output_path))
-        
-        return str(midi_output_path)
+        if activations:
+            result = self.transcriptor.transcribe(audio, str(midi_output_path))
+            return str(midi_output_path), result
+        else:
+            result = self.transcriptor.transcribe(audio, str(midi_output_path))
+            return str(midi_output_path)
     
     def transcribe_audio_array(
         self, 
         audio: torch.Tensor, 
-        midi_output_path: Union[str, Path]
+        midi_output_path: Union[str, Path],
+        activations: Optional[bool] = False
     ) -> str:
         """
         Transcribe audio array/tensor to MIDI.
@@ -236,7 +259,10 @@ class MidiTranscriptionModel(
         # Transcribe using the underlying model
         result = self.transcriptor.transcribe(audio, str(midi_output_path))
         
-        return str(midi_output_path)
+        if activations:
+            return str(midi_output_path), result
+        else:
+            return str(midi_output_path)
     
     def _save_pretrained(self, save_directory: Union[str, Path]) -> None:
         """
